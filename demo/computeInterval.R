@@ -18,6 +18,11 @@ v00 <- 1 #variance
 source("helperScript.R")
 #returns Baysian Discrete Prediction Interval according to OA Vsevolozhskaya, G Ruiz, DV Zaykin
 #also returns Frequentist Confidence Interval according to Lazerroni
+## statisticDistribution=c("normal","student's t")
+## p.obt = the observed upper-tail p-value
+## N = sample size for test statistic
+## meanPrior = the prior mean for the test statistic's mean or non-centrality parameter distribution
+## varPrior = the prior variance for the test statistic's mean or non-centrality parameter distribution
 summaryInfo<-computeInterval(statisticDistribution="student's t",p.obt=p.obt,N=N,
     meanPrior=m00,varPrior=v00)#data frame object
 #write summaryInfo to a txt file:

@@ -40,23 +40,23 @@ F_inv_tDistr = function(p,w,df,ncp,br=c(-100000,100000))
   return( uniroot(G,br)$root ) 
 }
 ####################
-computeInterval<-function(statisticDistribution="Normal",p.obt,N,meanPrior,varPrior){
+computeInterval<-function(statisticDistribution="Normal",p.obt,N,sumN,meanPrior,varPrior){
   if(statisticDistribution=="normal"){
     z.obt=qnorm(p=p.obt,lower.tail=F)
-    return(computeInterval_normDistr(z.obt=z.obt,N=N,meanPrior=meanPrior,varPrior=varPrior))
-  }else if(statisticDistribution=="student's t"){
+    return(computeInterval_normDistr(z.obt=z.obt,N=N, meanPrior=meanPrior,varPrior=varPrior))
+  } else if(statisticDistribution=="Student"){
     #observed t-statistics; note: must be upper tail t-statistic
     t.obt=qt(p=p.obt,df=N-1,lower.tail=F)
-    return(computeInterval_tDistr(t.obt=t.obt,N=N,meanPrior=meanPrior,varPrior=varPrior))
-  }else{
+    return( suppressWarnings(computeInterval_tDistr(t.obt=t.obt,N=N, sumN=sumN, meanPrior=meanPrior,varPrior=varPrior)) )
+  } else {
     print("Error: Unkown test statstic distribution speciefied.")
   }
 }
 
 
 #returns Baysian Discrete Prediction Interval according to OA Vsevolozhskaya, G Ruiz, DV Zaykin
-#also returns Frequentest Confidence Interval according to Lazerroni
-computeInterval_tDistr<-function(t.obt,N,meanPrior,varPrior){
+#also returns Frequentest Interval
+computeInterval_tDistr<-function(t.obt,N,sumN,meanPrior,varPrior){
   #How wide every bin should be, except leftmost and rightmost bins
   #the narrower, the more precision; 
   #However, negligible precision increase for smaller bin widths than below
@@ -78,15 +78,21 @@ computeInterval_tDistr<-function(t.obt,N,meanPrior,varPrior){
   ###########
   ###
   ##posterior weights and mean estimate given observed p-value/t-statistic
-  wts_post<-px*dt(x=t.obt,ncp=fud,df=N-1)/sum(px*dt(x=t.obt,ncp=fud,df=N-1))
+    fdn <- sqrt(N)*fud
+    if(N == sumN) {
+        df.t <- N-1
+    } else {
+        df.t <- sumN-2
+    }
+  wts_post <- px * dt(x=t.obt,ncp=fdn,df=df.t)/sum(px*dt(x=t.obt,ncp=fdn,df=df.t))
   #Note: posterior mean is a weighted average using updated weights
-  th.discr<-sum(fud*wts_post)
+  th.discr <- sum(fud*wts_post)
   ##
   #For Discrete Bayesian PI##
-  Lower.Discr<-F_inv_tDistr(p=(1-alpha)/2,w=wts_post,df=N-1,ncp=fud)
-  Upper.Discr<-F_inv_tDistr(p=1-(1-alpha)/2,w=wts_post,df=N-1,ncp=fud)
+  Lower.Discr<-F_inv_tDistr(p=(1-alpha)/2,w=wts_post,df=df.t,ncp=fdn)
+  Upper.Discr<-F_inv_tDistr(p=1-(1-alpha)/2,w=wts_post,df=df.t,ncp=fdn)
   ##################
-  #For Lazerroni PI#
+  #For P-interval#
   Lower.L<-NA#qt((1-alpha)/2, ncp=t.obt, df=N-1)
   Upper.L<-NA#qt(1-(1-alpha)/2, ncp=t.obt, df=N-1)
   ##################
@@ -97,7 +103,7 @@ computeInterval_tDistr<-function(t.obt,N,meanPrior,varPrior){
   
   
   summary_table<-data.frame(
-    pInterval.type=c("Discrete Bayesian","Lazerroni"),
+    pInterval.type=c("Discrete Bayesian","P-interval"),
     lower.tStat.bound=c(Lower.Discr,Lower.L),
     upper.tStat.bound=c(Upper.Discr,Upper.L),
     lower.pInterval.bound=
@@ -109,7 +115,7 @@ computeInterval_tDistr<-function(t.obt,N,meanPrior,varPrior){
 }
 
 #returns Baysian Discrete Prediction Interval for Z-statistics according to OA Vsevolozhskaya, G Ruiz, DV Zaykin
-#also returns Frequentest Confidence Interval according to Lazerroni
+#also returns Frequentest Interval
 computeInterval_normDistr<-function(z.obt,N,meanPrior,varPrior){
   #How wide every bin should be, except leftmost and rightmost bins
   #the narrower, the more precision; 
@@ -131,16 +137,17 @@ computeInterval_normDistr<-function(z.obt,N,meanPrior,varPrior){
   ###
   ###########
   ###
-  ##posterior weights and mean estimate given observed p-value/t-statistic
-  wts_post<-px*dnorm(x=z.obt,mean=fud,sd=1)/sum(px*dnorm(x=z.obt,mean=fud,sd=1))
+  ##posterior weights and mean estimate given observed p-value/statistic
+  fdn=sqrt(N)*fud
+  wts_post<-px*dnorm(x=z.obt,mean=fdn,sd=1)/sum(px*dnorm(x=z.obt,mean=fdn,sd=1))
   #Note: posterior mean is a weighted average using updated weights
   th.discr<-sum(fud*wts_post)
   ##
   #For Discrete Bayesian PI##
-  Lower.Discr<-F_inv_normDistr(p=(1-alpha)/2,w=wts_post,u=fud,s=1)
-  Upper.Discr<-F_inv_normDistr(p=1-(1-alpha)/2,w=wts_post,u=fud,s=1)
+  Lower.Discr<-F_inv_normDistr(p=(1-alpha)/2,w=wts_post,u=fdn,s=1)
+  Upper.Discr<-F_inv_normDistr(p=1-(1-alpha)/2,w=wts_post,u=fdn,s=1)
   ##################
-  #For Lazerroni PI#
+  #For P-interval #
   Lower.L<-qnorm((1-alpha)/2, mean=z.obt, sd=sqrt(2))
   Upper.L<-qnorm(1-(1-alpha)/2, mean=z.obt, sd=sqrt(2))
   ##################
@@ -151,7 +158,7 @@ computeInterval_normDistr<-function(z.obt,N,meanPrior,varPrior){
   
   
   summary_table<-data.frame(
-    pInterval.type=c("Discrete Bayesian","Lazerroni"),
+    pInterval.type=c("Discrete Bayesian","P-interval"),
     lower.zStat.bound=c(Lower.Discr,Lower.L),
     upper.zStat.bound=c(Upper.Discr,Upper.L),
     lower.pInterval.bound=

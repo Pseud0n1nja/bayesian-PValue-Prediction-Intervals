@@ -1,14 +1,14 @@
 require(actuar)
 require(LearnBayes)
 ####################
-computeInterval<-function(statisticDistribution,p.obt,priorBinMeans,priorBinWeights,df1=NULL,df2=NULL){
-  if(statisticDistribution=="Normal"){
+computeInterval<-function(statisticDistribution,p.obt,N,priorBinMeans,priorBinWeights,df1=NULL,df2=NULL){
+    if(statisticDistribution=="Normal"){
     z.obt=qnorm(p=p.obt,lower.tail=F)
-    return(computeInterval_normDistr(z.obt=z.obt,fud=priorBinMeans,px=priorBinWeights))
-  }else if(statisticDistribution=="Student's t"){
+    return(computeInterval_normDistr(z.obt=z.obt,fud=priorBinMeans*sqrt(N),px=priorBinWeights))
+  }else if(statisticDistribution=="Student"){
     #observed t-statistic; note: must be upper tail t-statistic
-    t.obt=qt(p=p.obt,df=df1,lower.tail=F)
-    return(computeInterval_tDistr(t.obt=t.obt,fud=priorBinMeans,px=priorBinWeights,df=df1))
+    t.obt=qt(p=p.obt,df=df2,lower.tail=F)
+    return(computeInterval_tDistr(t.obt=t.obt,fud=priorBinMeans*sqrt(N),px=priorBinWeights,df=df2))
   }else if(statisticDistribution=="F"){
     if(min(priorBinMeans)<0){
       print("ERROR: bin means must be >= 0. Support of any F-distribution is 0 to Infty.")
@@ -16,7 +16,7 @@ computeInterval<-function(statisticDistribution,p.obt,priorBinMeans,priorBinWeig
     }
     #observed F-statistic; note: must be upper tail F-statistic
     F.obt=qf(p=p.obt,df1=df1,df2=df2,lower.tail=F)
-    return(computeInterval_FDistr(F.obt=F.obt,fud=priorBinMeans,px=priorBinWeights,df1=df1,df2=df2))
+    return(computeInterval_FDistr(F.obt=F.obt,fud=priorBinMeans*N,px=priorBinWeights,df1=df1,df2=df2))
   }else if(statisticDistribution=="Chi-Squared"){
     if(min(priorBinMeans)<0){
       print("ERROR: bin means must be >= 0. Support of any Chisq-distribution is 0 to Infty.")
@@ -24,7 +24,7 @@ computeInterval<-function(statisticDistribution,p.obt,priorBinMeans,priorBinWeig
     }
     #observed Chisq-statistic; note: must be upper tail Chisq-statistic
     Chisq.obt=qchisq(p=p.obt,df=df1,lower.tail=F)
-    return(computeInterval_ChisqDistr(Chisq.obt=Chisq.obt,fud=priorBinMeans,px=priorBinWeights,df=df1))
+    return(computeInterval_ChisqDistr(Chisq.obt=Chisq.obt,fud=priorBinMeans*N,px=priorBinWeights,df=df1))
   }else{
     print("Error: Unkown test statstic distribution speciefied.")
     return(NULL)
@@ -52,7 +52,7 @@ F_inv_tDistr = function(p,w,df,ncp,br=c(-100000,100000))
 }
 ##
 #returns Baysian Discrete Prediction Interval according to OA Vsevolozhskaya, G Ruiz, DV Zaykin
-#also returns Frequentest Confidence Interval according to Lazerroni
+#also returns Frequentest Interval
 computeInterval_tDistr<-function(t.obt,fud,px,df){
   ##posterior weights and mean estimate given observed p-value/t-statistic
   wts_post<-px*dt(x=t.obt,ncp=fud,df=df)/sum(px*dt(x=t.obt,ncp=fud,df=df))
@@ -63,7 +63,7 @@ computeInterval_tDistr<-function(t.obt,fud,px,df){
   Lower.Discr<-F_inv_tDistr(p=(1-alpha)/2,w=wts_post,df=df,ncp=fud)
   Upper.Discr<-F_inv_tDistr(p=1-(1-alpha)/2,w=wts_post,df=df,ncp=fud)
   ##################
-  #For Lazerroni PI#
+  #For PI#
   Lower.L<-NA#qt((1-alpha)/2, ncp=t.obt, df=df)
   Upper.L<-NA#qt(1-(1-alpha)/2, ncp=t.obt, df=df)
   ##################
@@ -74,7 +74,7 @@ computeInterval_tDistr<-function(t.obt,fud,px,df){
   
   
   summary_table<-data.frame(
-    pInterval.type=c("Discrete Bayesian","Lazerroni"),
+    pInterval.type=c("Discrete Bayesian","P-interval"),
     lower.tStat.bound=c(Lower.Discr,Lower.L),
     upper.tStat.bound=c(Upper.Discr,Upper.L),
     lower.pInterval.bound=
@@ -111,7 +111,7 @@ F_inv_normDistr = function(p,w,u,s,br=c(-100000,100000))
 ##
 
 #returns Baysian Discrete Prediction Interval for Z-statistics according to OA Vsevolozhskaya, G Ruiz, DV Zaykin
-#also returns Frequentest Confidence Interval according to Lazerroni
+#also returns Frequentest Interval
 computeInterval_normDistr<-function(z.obt,fud,px){
   ##posterior weights and mean estimate given observed p-value/t-statistic
   wts_post<-px*dnorm(x=z.obt,mean=fud,sd=1)/sum(px*dnorm(x=z.obt,mean=fud,sd=1))
@@ -122,7 +122,7 @@ computeInterval_normDistr<-function(z.obt,fud,px){
   Lower.Discr<-F_inv_normDistr(p=(1-alpha)/2,w=wts_post,u=fud,s=1)
   Upper.Discr<-F_inv_normDistr(p=1-(1-alpha)/2,w=wts_post,u=fud,s=1)
   ##################
-  #For Lazerroni PI#
+  #For PI#
   Lower.L<-qnorm((1-alpha)/2, mean=z.obt, sd=sqrt(2))
   Upper.L<-qnorm(1-(1-alpha)/2, mean=z.obt, sd=sqrt(2))
   ##################
@@ -133,7 +133,7 @@ computeInterval_normDistr<-function(z.obt,fud,px){
   
   
   summary_table<-data.frame(
-    pInterval.type=c("Discrete Bayesian","Lazerroni"),
+    pInterval.type=c("Discrete Bayesian","P-interval"),
     lower.zStat.bound=c(Lower.Discr,Lower.L),
     upper.zStat.bound=c(Upper.Discr,Upper.L),
     lower.pInterval.bound=
@@ -165,7 +165,7 @@ F_inv_FDistr = function(p,w,df1,df2,ncp,br=c(-100000,100000))
 }
 ##
 #returns Baysian Discrete Prediction Interval according to OA Vsevolozhskaya, G Ruiz, DV Zaykin
-#also returns Frequentest Confidence Interval according to Lazerroni
+#also returns Frequentest Interval
 computeInterval_FDistr<-function(F.obt,fud,px,df1,df2){
   ##posterior weights and mean estimate given observed p-value/t-statistic
   wts_post<-px*df(x=F.obt,ncp=fud,df1=df1,df2=df2)/sum(px*df(x=F.obt,ncp=fud,df1=df1,df2=df2))
@@ -176,7 +176,7 @@ computeInterval_FDistr<-function(F.obt,fud,px,df1,df2){
   Lower.Discr<-F_inv_FDistr(p=(1-alpha)/2,w=wts_post,df1=df1,df2=df2,ncp=fud)
   Upper.Discr<-F_inv_FDistr(p=1-(1-alpha)/2,w=wts_post,df1=df1,df2=df2,ncp=fud)
   ##################
-  #For Lazerroni PI#
+  #For PI#
   Lower.L<-NA#qt((1-alpha)/2, ncp=t.obt, df=df)
   Upper.L<-NA#qt(1-(1-alpha)/2, ncp=t.obt, df=df)
   ##################
@@ -185,7 +185,7 @@ computeInterval_FDistr<-function(F.obt,fud,px,df1,df2){
   ###Summary Table###
   ###################
   summary_table<-data.frame(
-    pInterval.type=c("Discrete Bayesian","Lazerroni"),
+    pInterval.type=c("Discrete Bayesian","P-interval"),
     lower.FStat.bound=c(Lower.Discr,Lower.L),
     upper.FStat.bound=c(Upper.Discr,Upper.L),
     lower.pInterval.bound=
@@ -217,7 +217,7 @@ F_inv_ChisqDistr=function(p,w,df,ncp,br=c(-100000,100000))
 }
 ##
 #returns Baysian Discrete Prediction Interval according to OA Vsevolozhskaya, G Ruiz, DV Zaykin
-#also returns Frequentest Confidence Interval according to Lazerroni
+#also returns Frequentest Interval
 computeInterval_ChisqDistr<-function(Chisq.obt,fud,px,df){
   ##posterior weights and mean estimate given observed p-value/t-statistic
   wts_post<-px*dchisq(x=Chisq.obt,ncp=fud,df=df)/sum(px*dchisq(x=Chisq.obt,ncp=fud,df=df))
@@ -228,7 +228,7 @@ computeInterval_ChisqDistr<-function(Chisq.obt,fud,px,df){
   Lower.Discr<-F_inv_ChisqDistr(p=(1-alpha)/2,w=wts_post,df=df,ncp=fud)
   Upper.Discr<-F_inv_ChisqDistr(p=1-(1-alpha)/2,w=wts_post,df=df,ncp=fud)
   ##################
-  #For Lazerroni PI#
+  #For PI#
   Lower.L<-NA#qt((1-alpha)/2, ncp=t.obt, df=df)
   Upper.L<-NA#qt(1-(1-alpha)/2, ncp=t.obt, df=df)
   ##################
@@ -237,7 +237,7 @@ computeInterval_ChisqDistr<-function(Chisq.obt,fud,px,df){
   ###Summary Table###
   ###################
   summary_table<-data.frame(
-    pInterval.type=c("Discrete Bayesian","Lazerroni"),
+    pInterval.type=c("Discrete Bayesian","P-interval"),
     lower.ChisqStat.bound=c(Lower.Discr,Lower.L),
     upper.FStat.bound=c(Upper.Discr,Upper.L),
     lower.pInterval.bound=
